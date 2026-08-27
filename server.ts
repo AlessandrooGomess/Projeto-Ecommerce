@@ -266,12 +266,46 @@ app.get('/api/stats', (req: Request, res: Response) => {
   });
 });
 
+// Helper lists for moderation and context relevance
+const OFFENSIVE_TERMS = [
+  'caralho', 'porra', 'puta', 'puto', 'merda', 'bosta', 'foda', 'foder', 'fodasse', 'foda-se',
+  'arrombado', 'arrombada', 'vagabundo', 'vagabunda', 'cacete', 'filho da puta', 'fdp',
+  'desgraca', 'desgraça', 'otario', 'otaria', 'imbecil', 'idiota', 'babaca', 'corno', 'pau no cu',
+  'cu', 'buceta', 'piroca', 'viado', 'viadagem', 'caralha', 'vsf', 'vtnc', 'pqp'
+];
+
+function containsOffensiveWords(text: string): boolean {
+  const normalized = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ');
+  const words = normalized.split(/\s+/);
+  return OFFENSIVE_TERMS.some(term => {
+    if (term.includes(' ')) {
+      return normalized.includes(term);
+    }
+    return words.includes(term);
+  });
+}
+
+const OFF_TOPIC_REDIRECTION_MSG = 'Olá! Sou o Guia do Artesanato Regional. Posso te ajudar a encontrar peças únicas de mestres de todo o Brasil, tirar dúvidas sobre frete para produtos frágeis, prazos de produção e explicar nossa Garantia de Pagamento Seguro. Como posso te ajudar hoje?';
+const OFFENSIVE_RESPONSE_MSG = 'Opa, aqui temos apenas produtos artesanais.';
+
 // Customer Support Chat API (Gemini Powered & Regional Business Context)
 app.post('/api/chat', async (req: Request, res: Response) => {
   const { message, history } = req.body;
 
   if (!message || typeof message !== 'string') {
     return res.status(400).json({ error: 'Mensagem inválida.' });
+  }
+
+  // 1. Guardrail for offensive language
+  if (containsOffensiveWords(message)) {
+    return res.json({
+      text: OFFENSIVE_RESPONSE_MSG,
+      source: 'moderation_filter'
+    });
   }
 
   const ai = getAIClient();
@@ -287,23 +321,27 @@ app.post('/api/chat', async (req: Request, res: Response) => {
 
   const systemInstruction = `Você é o "Guia do Artesanato Regional", assistente virtual de atendimento ao cliente de uma plataforma de e-commerce que conecta pequenos produtores e artesãos locais a clientes de todo o Brasil.
 
-Suas diretrizes de atendimento são:
-1. PRODUTOS LOCAIS: Explique a história, materiais e valor cultural das peças (Cerâmica do Jequitinhonha, Renda Irlandesa de Sergipe, Esculturas em Madeira do Cariri, Queijos e Doces da Canastra, Biojoias da Amazônia/Bahia, Tecelagem Gaúcha).
-2. PRAZOS DE ENTREGA POR LOCALIDADE:
-   - Região Sudeste: 3 a 5 dias úteis (frete expresso direto das oficinas).
-   - Região Sul: 4 a 6 dias úteis.
-   - Região Nordeste: 4 a 7 dias úteis.
-   - Regiões Norte e Centro-Oeste: 6 a 10 dias úteis.
-   - Embalagens: todas as peças frágeis (como cerâmicas e vidros) são enviadas em caixas de alta absorção de impacto com palha natural protetora e plástico bolha reforçado.
-3. RASTREIO DE PEDIDOS:
-   - Os códigos de rastreio seguem o formato BR-ART-XXXXXX-UF (ex: BR-ART-489210-MG). Podem ser consultados no painel ou diretamente nos Correios e transportadoras parceiras.
-4. FORMAS DE PAGAMENTO SEGURO INTEGRADO:
-   - PIX: com 5% de desconto e aprovação imediata via QR Code e Chave Copia e Cola.
-   - Cartão de Crédito: parcelamento em até 12x sem juros com proteção antifraude 256-bit.
-   - Boleto Bancário: compensação em até 1 dia útil com 3 dias para vencimento.
-   - Garantia de Custódia: O dinheiro fica protegido em conta garantia e só é liberado para o pequeno produtor após o recebimento e conferência do produto pelo cliente.
-5. TOM DE VOZ:
-   - Caloroso, prestativo, claro e objetivo. Responda em português brasileiro com formatação legível (tópicos quando conveniente) e concisão (2 a 3 parágrafos curtos).
+REGRAS ESTRITAS DE COMPORTAMENTO:
+1. PALAVRAS OFENSIVAS OU DESRESPEITOSAS:
+   Se o usuário usar palavrões, xingamentos, ofensas ou termos vulgares, responda EXATAMENTE E APENAS:
+   "${OFFENSIVE_RESPONSE_MSG}"
+
+2. ASSUNTOS FORA DO CONTEXTO / ALEATÓRIOS:
+   Se o usuário digitar algo aleatório, sem nexo, caracteres desconexos, ou perguntar sobre assuntos que NÃO tenham a ver com o site, artesanato brasileiro, compras, pedidos, frete, pagamentos ou mestres artesãos (por exemplo: programação, receitas em geral, fofocas, matemática, perguntas gerais de enciclopédia, política, etc.), responda EXATAMENTE E APENAS:
+   "${OFF_TOPIC_REDIRECTION_MSG}"
+
+3. CONTEXTO DO SITE E PRODUTOS:
+   Quando a dúvida for sobre a loja, artesanato e compras, siga estas diretrizes:
+   - PRODUTOS LOCAIS: Explique a história, materiais e valor cultural das peças (Cerâmica do Jequitinhonha, Renda Irlandesa de Sergipe, Esculturas em Madeira do Cariri, Queijos e Doces da Canastra, Biojoias da Amazônia/Bahia, Tecelagem Gaúcha).
+   - PRAZOS DE ENTREGA POR LOCALIDADE:
+     * Sudeste: 3 a 5 dias úteis.
+     * Sul: 4 a 6 dias úteis.
+     * Nordeste: 4 a 7 dias úteis.
+     * Norte e Centro-Oeste: 6 a 10 dias úteis.
+     * Embalagens: peças frágeis (cerâmicas e vidros) são enviadas em caixas especiais com palha natural protetora e plástico bolha reforçado.
+   - RASTREIO DE PEDIDOS: Códigos no formato BR-ART-XXXXXX-UF.
+   - PAGAMENTO SEGURO: PIX (com 5% de desconto), Cartão de Crédito em até 12x e Boleto Bancário, com Garantia de Custódia.
+   - TOM DE VOZ: Caloroso, prestativo, claro e objetivo. Responda em português brasileiro.
 
 Catálogo atual de produtos:
 ${productCatalogSummary}
@@ -314,7 +352,26 @@ ${artisanSummary}`;
   if (!ai) {
     // Contextual fallback when API key is not yet set
     const lower = message.toLowerCase();
-    let fallbackText = "Olá! Sou o Guia do Artesanato Regional. Como posso ajudar com dúvidas sobre produtos, prazos de entrega por região, rastreio ou pagamento seguro?";
+
+    // Check relevant keywords
+    const isCraftOrStoreRelated = [
+      'prazo', 'frete', 'entrega', 'envio', 'regiao', 'região', 'cep', 'rastreio', 'rastrear',
+      'codigo', 'código', 'pedido', 'onde esta', 'onde está', 'pagamento', 'pix', 'cartao',
+      'cartão', 'boleto', 'parcel', 'seguro', 'custodia', 'custódia', 'garantia', 'cerâmica',
+      'ceramica', 'jequitinhonha', 'canastra', 'queijo', 'renda', 'artesao', 'artesão', 'mestre',
+      'produto', 'presente', 'loja', 'comprar', 'preço', 'preco', 'comprar', 'artesanato',
+      'madeira', 'biojoia', 'tecelagem', 'bahia', 'minas', 'nordeste', 'sul', 'norte', 'ola', 'olá',
+      'bom dia', 'boa tarde', 'boa noite', 'ajuda', 'suporte'
+    ].some(k => lower.includes(k));
+
+    if (!isCraftOrStoreRelated) {
+      return res.json({
+        text: OFF_TOPIC_REDIRECTION_MSG,
+        source: 'local_redirection'
+      });
+    }
+
+    let fallbackText = OFF_TOPIC_REDIRECTION_MSG;
 
     if (lower.includes('prazo') || lower.includes('frete') || lower.includes('entrega') || lower.includes('envio') || lower.includes('regiao') || lower.includes('região') || lower.includes('cep')) {
       fallbackText = "🚚 **Prazos de Entrega por Localidade:**\n• **Sudeste:** 3 a 5 dias úteis\n• **Sul:** 4 a 6 dias úteis\n• **Nordeste:** 4 a 7 dias úteis\n• **Norte / Centro-Oeste:** 6 a 10 dias úteis\n\nTodas as peças de cerâmica e vidro recebem embalagem especial anti-impacto com palha natural protetora.";
@@ -334,15 +391,15 @@ ${artisanSummary}`;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.7-flash',
       contents: message,
       config: {
         systemInstruction,
-        temperature: 0.6
+        temperature: 0.2
       }
     });
 
-    const reply = response.text || 'Obrigado por consultar o Artesanato Regional! Nossos mestres e equipe de suporte estão à disposição.';
+    const reply = response.text?.trim() || OFF_TOPIC_REDIRECTION_MSG;
     res.json({
       text: reply,
       source: 'gemini'
@@ -350,7 +407,7 @@ ${artisanSummary}`;
   } catch (error: any) {
     console.error('Gemini API Error:', error);
     res.json({
-      text: `Olá! Sou o Guia do Artesanato Regional. Oferecemos peças autênticas com garantia de entrega para todo o Brasil, frete protegido e pagamento seguro via PIX (com 5% OFF) ou Cartão em até 12x.`,
+      text: OFF_TOPIC_REDIRECTION_MSG,
       source: 'fallback_error'
     });
   }
