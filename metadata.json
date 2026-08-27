@@ -1,0 +1,6 @@
+{
+  "name": "Artesanato Regional",
+  "description": "E-commerce de produtos artesanais com avaliações, filtro por localidade, pagamento seguro, chat de suporte integrado e painel administrativo de pedidos e estoque.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
