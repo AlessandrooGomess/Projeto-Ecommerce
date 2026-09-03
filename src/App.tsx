@@ -531,6 +531,7 @@ export default function App() {
       {/* Support Customer Chat with AI */}
       <SupportChat
         isOpen={isChatOpen}
+        onOpen={() => setIsChatOpen(true)}
         onClose={() => setIsChatOpen(false)}
         onSelectRegionFilter={(reg) => {
           setFilters((f) => ({ ...f, region: reg }));

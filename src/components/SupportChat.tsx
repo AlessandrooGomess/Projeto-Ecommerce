@@ -4,6 +4,7 @@ import { ChatMessage } from '../types';
 
 interface SupportChatProps {
   isOpen: boolean;
+  onOpen?: () => void;
   onClose: () => void;
   onSelectRegionFilter?: (region: string) => void;
 }
@@ -26,6 +27,7 @@ const SUGGESTED_QUESTIONS = [
 
 export const SupportChat: React.FC<SupportChatProps> = ({
   isOpen,
+  onOpen,
   onClose,
   onSelectRegionFilter
 }) => {
@@ -108,7 +110,7 @@ export const SupportChat: React.FC<SupportChatProps> = ({
     return (
       <button
         id="floating-support-chat-button"
-        onClick={onClose}
+        onClick={onOpen}
         className="fixed bottom-6 right-6 z-40 p-3.5 bg-amber-600 hover:bg-amber-500 text-white rounded-full shadow-2xl hover:scale-105 transition-all flex items-center gap-2 group border border-amber-400/40"
         title="Dúvidas e Suporte ao Cliente"
       >
